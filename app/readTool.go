@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/shared"
 )
@@ -25,3 +28,14 @@ var ReadFileTool = openai.ChatCompletionFunctionTool(shared.FunctionDefinitionPa
 	Description: openai.String("Read and return the contents of a file"),
 	Parameters:  ReadToolParams,
 })
+
+func ReadFile(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return "", err
+	}
+	fileContent := string(content)
+	// fmt.Println(fileContent)
+	return fileContent, nil
+}

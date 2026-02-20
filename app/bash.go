@@ -37,7 +37,7 @@ func RunBashCommand(command string) (string, error) {
 	if len(parts) == 1 {
 		args = []string{""}
 	} else {
-		args = parts[0:]
+		args = parts[1:]
 	}
 	program = parts[0]
 	cmd := exec.Command(program, args...)

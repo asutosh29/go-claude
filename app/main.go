@@ -91,10 +91,10 @@ func main() {
 		}
 
 		// Manage Message history
-		var Message = resp.Choices[0].Message
 		messages = append(messages, resp.Choices[0].Message.ToParam())
 
-		fmt.Fprintln(os.Stdout, Message.Content)
+		// !!!! Do not show the thinking process for while submitting!!!
+		// fmt.Fprintln(os.Stdout, Message.Content)
 		// fmt.Fprintln(os.Stdout)
 		for _, Choice := range resp.Choices {
 			toolCalls := Choice.Message.ToolCalls

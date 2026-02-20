@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -11,6 +13,38 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/shared"
 )
+
+// Tool Definitions
+func ReadTool(filePath string) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	// Create a byte slice (buffer) of a specific chunk size (e.g., 5 bytes).
+	buffer := make([]byte, 5)
+	fmt.Fprintln(os.Stderr)
+	for {
+		// Read up to len(buffer) bytes from the file.
+		n, err := f.Read(buffer)
+
+		// Process the bytes that were read (from index 0 to n-1).
+		if n > 0 {
+			fmt.Printf("%s", string(buffer[:n]))
+			// fmt.Printf("%d bytes: %s\n", n, string(buffer[:n]))
+		}
+
+		// Check for EOF (End of File) or any other errors.
+		if err == io.EOF {
+			break // Exit the loop when the end of the file is reached
+		} else if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+}
 
 func main() {
 	godotenv.Load()
@@ -40,20 +74,22 @@ func main() {
 	}
 
 	// Tool setup
+	ReadToolParams := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"file_path": map[string]any{
+				"type":        "string",
+				"description": "The path to the file to read",
+			},
+		},
+		"required": []string{"file_path"},
+	}
+
 	Tools := []openai.ChatCompletionToolUnionParam{
 		openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{
 			Name:        "Read",
 			Description: openai.String("Read and return the contents of a file"),
-			Parameters: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"file_path": map[string]any{
-						"type":        "string",
-						"description": "The path to the file to read",
-					},
-				},
-				"required": []string{"file_path"},
-			},
+			Parameters:  ReadToolParams,
 		}),
 	}
 
@@ -86,4 +122,26 @@ func main() {
 
 	// TODO: Uncomment the line below to pass the first stage
 	fmt.Print(resp.Choices[0].Message.Content)
+	for _, Choice := range resp.Choices {
+		toolCalls := Choice.Message.ToolCalls
+		if len(toolCalls) != 0 {
+			for _, toolCall := range toolCalls {
+				type toolCallArguments struct {
+					FilePath string `json:"file_path"`
+				}
+				var toolCallArgs toolCallArguments
+				toolCallArgumentsJSON := toolCall.Function.Arguments
+				if err := json.Unmarshal([]byte(toolCallArgumentsJSON), &toolCallArgs); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					panic("failed to unmarshall")
+
+				}
+				switch toolCall.Function.Name {
+				case "Read":
+					ReadTool(toolCallArgs.FilePath)
+				}
+
+			}
+		}
+	}
 }

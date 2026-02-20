@@ -52,6 +52,8 @@ func main() {
 	}
 	// Messages Setup
 	var messages []openai.ChatCompletionMessageParamUnion
+	var systemPrompt = "You are an helpfull assistant. Strictly adhere to the instructions provided by the user. Be precise."
+	messages = append(messages, openai.SystemMessage(systemPrompt))
 	messages = append(messages, openai.UserMessage(prompt))
 
 	// Tool setup

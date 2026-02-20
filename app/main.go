@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -14,35 +13,15 @@ import (
 )
 
 // Tool Definitions
-func ReadFile(filePath string) {
-	f, err := os.Open(filePath)
+func ReadFile(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fmt.Println("File reading error", err)
+		return "", err
 	}
-	defer f.Close()
-
-	// Create a byte slice (buffer) of a specific chunk size (e.g., 5 bytes).
-	buffer := make([]byte, 5)
-	fmt.Fprintln(os.Stderr)
-	for {
-		// Read up to len(buffer) bytes from the file.
-		n, err := f.Read(buffer)
-
-		// Process the bytes that were read (from index 0 to n-1).
-		if n > 0 {
-			fmt.Printf("%s", string(buffer[:n]))
-			// fmt.Printf("%d bytes: %s\n", n, string(buffer[:n]))
-		}
-
-		// Check for EOF (End of File) or any other errors.
-		if err == io.EOF {
-			break // Exit the loop when the end of the file is reached
-		} else if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-	}
+	fileContent := string(content)
+	// fmt.Println(fileContent)
+	return fileContent, nil
 }
 
 func main() {
@@ -71,59 +50,84 @@ func main() {
 	} else {
 		modelName = "anthropic/claude-haiku-4.5"
 	}
+	// Messages Setup
+	var messages []openai.ChatCompletionMessageParamUnion
+	// var initalMessages = []openai.ChatCompletionMessageParamUnion{
+	// 	{
+	// 		OfUser: &openai.ChatCompletionUserMessageParam{
+	// 			Content: openai.ChatCompletionUserMessageParamContentUnion{
+	// 				OfString: openai.String(prompt),
+	// 			},
+	// 		},
+	// 	},
+	// }
+
+	messages = append(messages, openai.UserMessage(prompt))
 
 	// Tool setup
 	Tools := []openai.ChatCompletionToolUnionParam{
 		ReadFileTool,
 	}
 
+	aiCtx := context.Background()
 	client := openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseUrl))
-	resp, err := client.Chat.Completions.New(context.Background(),
-		openai.ChatCompletionNewParams{
-			Model: modelName,
-			Messages: []openai.ChatCompletionMessageParamUnion{
-				{
-					OfUser: &openai.ChatCompletionUserMessageParam{
-						Content: openai.ChatCompletionUserMessageParamContentUnion{
-							OfString: openai.String(prompt),
-						},
-					},
-				},
+	// Make the Initial Request
+
+	// Agent Loop
+	for {
+		resp, err := client.Chat.Completions.New(aiCtx,
+			openai.ChatCompletionNewParams{
+				Model:    modelName,
+				Messages: messages,
+				Tools:    Tools,
 			},
-			Tools: Tools,
-		},
-	)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-	if len(resp.Choices) == 0 {
-		panic("No choices in response")
-	}
+		)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		if len(resp.Choices) == 0 {
+			panic("No choices in response")
+		}
+		if resp.Choices[0].FinishReason == "stop" {
+			fmt.Print(resp.Choices[0].Message.Content)
+			break
+		}
 
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
+		// Manage Message history
+		var Message = resp.Choices[0].Message
+		switch Message.Role {
+		case "assistant":
+			messages = append(messages, openai.AssistantMessage(Message.Content))
+		case "user":
+			messages = append(messages, openai.UserMessage(Message.Content))
+		}
+		fmt.Fprintln(os.Stdout, Message.Content)
+		// fmt.Fprintln(os.Stdout)
+		for _, Choice := range resp.Choices {
+			toolCalls := Choice.Message.ToolCalls
+			if len(toolCalls) != 0 {
+				for _, toolCall := range toolCalls {
+					toolCallId := toolCall.ID
+					switch toolCall.Function.Name {
+					case "Read":
+						var toolCallArgs ReadToolArguments
+						toolCallArgumentsJSON := toolCall.Function.Arguments
+						if err := json.Unmarshal([]byte(toolCallArgumentsJSON), &toolCallArgs); err != nil {
+							fmt.Fprintln(os.Stderr, err)
+							panic("failed to unmarshall")
 
-	// TODO: Uncomment the line below to pass the first stage
-	fmt.Print(resp.Choices[0].Message.Content)
-	for _, Choice := range resp.Choices {
-		toolCalls := Choice.Message.ToolCalls
-		if len(toolCalls) != 0 {
-			for _, toolCall := range toolCalls {
-
-				switch toolCall.Function.Name {
-				case "Read":
-					var toolCallArgs ReadToolArguments
-					toolCallArgumentsJSON := toolCall.Function.Arguments
-					if err := json.Unmarshal([]byte(toolCallArgumentsJSON), &toolCallArgs); err != nil {
-						fmt.Fprintln(os.Stderr, err)
-						panic("failed to unmarshall")
-
+						}
+						fileContent, err := ReadFile(toolCallArgs.FilePath)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "error: %v\n", err)
+							os.Exit(1)
+						}
+						messages = append(messages, openai.ToolMessage(fileContent, toolCallId))
 					}
-					ReadFile(toolCallArgs.FilePath)
 				}
-
 			}
 		}
 	}
+
 }

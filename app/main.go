@@ -65,10 +65,10 @@ func main() {
 
 	// Agent Loop
 	for {
-		fmt.Println("=== LOGS ===")
-		for _, msg := range messages {
-			fmt.Printf("%+v\n", msg)
-		}
+		// fmt.Println("=== LOGS ===")
+		// for _, msg := range messages {
+		// 	fmt.Printf("%+v\n", msg)
+		// }
 		resp, err := client.Chat.Completions.New(aiCtx,
 			openai.ChatCompletionNewParams{
 				Model:    modelName,

@@ -43,6 +43,7 @@ func main() {
 	toolManager := NewToolManager()
 	toolManager.AddTool(ReadFileTool)
 	toolManager.AddTool(WriteFileTool)
+	toolManager.AddTool(BashFileTool)
 
 	// Messages Setup
 	var messages []openai.ChatCompletionMessageParamUnion

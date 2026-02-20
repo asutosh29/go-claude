@@ -48,11 +48,23 @@ func (t *toolManager) ExecuteTool(toolCall openai.ChatCompletionMessageToolCallU
 			fmt.Fprintln(os.Stderr, err)
 			panic("failed to unmarshall")
 		}
-		fileContent, err := WriteToFile(toolCallArgs.FilePath, toolCallArgs.Content)
+		writtenContent, err := WriteToFile(toolCallArgs.FilePath, toolCallArgs.Content)
 		if err != nil {
 			return "", err
 		}
-		return fileContent, nil
+		return writtenContent, nil
+	case "Bash":
+		var toolCallArgs BashToolArguments
+		toolCallArgumentsJSON := toolCall.Function.Arguments
+		if err := json.Unmarshal([]byte(toolCallArgumentsJSON), &toolCallArgs); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			panic("failed to unmarshall")
+		}
+		runOutput, err := RunBashCommand(toolCallArgs.Command)
+		if err != nil {
+			return "", err
+		}
+		return runOutput, nil
 
 	default:
 		return "", nil

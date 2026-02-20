@@ -11,11 +11,10 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
-	"github.com/openai/openai-go/v3/shared"
 )
 
 // Tool Definitions
-func ReadTool(filePath string) {
+func ReadFile(filePath string) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -74,23 +73,8 @@ func main() {
 	}
 
 	// Tool setup
-	ReadToolParams := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"file_path": map[string]any{
-				"type":        "string",
-				"description": "The path to the file to read",
-			},
-		},
-		"required": []string{"file_path"},
-	}
-
 	Tools := []openai.ChatCompletionToolUnionParam{
-		openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{
-			Name:        "Read",
-			Description: openai.String("Read and return the contents of a file"),
-			Parameters:  ReadToolParams,
-		}),
+		ReadFileTool,
 	}
 
 	client := openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseUrl))
@@ -126,19 +110,17 @@ func main() {
 		toolCalls := Choice.Message.ToolCalls
 		if len(toolCalls) != 0 {
 			for _, toolCall := range toolCalls {
-				type toolCallArguments struct {
-					FilePath string `json:"file_path"`
-				}
-				var toolCallArgs toolCallArguments
-				toolCallArgumentsJSON := toolCall.Function.Arguments
-				if err := json.Unmarshal([]byte(toolCallArgumentsJSON), &toolCallArgs); err != nil {
-					fmt.Fprintln(os.Stderr, err)
-					panic("failed to unmarshall")
 
-				}
 				switch toolCall.Function.Name {
 				case "Read":
-					ReadTool(toolCallArgs.FilePath)
+					var toolCallArgs ReadToolArguments
+					toolCallArgumentsJSON := toolCall.Function.Arguments
+					if err := json.Unmarshal([]byte(toolCallArgumentsJSON), &toolCallArgs); err != nil {
+						fmt.Fprintln(os.Stderr, err)
+						panic("failed to unmarshall")
+
+					}
+					ReadFile(toolCallArgs.FilePath)
 				}
 
 			}

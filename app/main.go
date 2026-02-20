@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/shared"
 )
 
 func main() {
@@ -37,6 +38,25 @@ func main() {
 	} else {
 		modelName = "anthropic/claude-haiku-4.5"
 	}
+
+	// Tool setup
+	Tools := []openai.ChatCompletionToolUnionParam{
+		openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{
+			Name:        "Read",
+			Description: openai.String("Read and return the contents of a file"),
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"file_path": map[string]any{
+						"type":        "string",
+						"description": "The path to the file to read",
+					},
+				},
+				"required": []string{"file_path"},
+			},
+		}),
+	}
+
 	client := openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseUrl))
 	resp, err := client.Chat.Completions.New(context.Background(),
 		openai.ChatCompletionNewParams{
@@ -50,6 +70,7 @@ func main() {
 					},
 				},
 			},
+			Tools: Tools,
 		},
 	)
 	if err != nil {

@@ -60,11 +60,11 @@ func (t *toolManager) ExecuteTool(toolCall openai.ChatCompletionMessageToolCallU
 			fmt.Fprintln(os.Stderr, err)
 			panic("failed to unmarshall")
 		}
-		runOutput, err := RunBashCommand(toolCallArgs.Command)
+		output, err := RunBashCommand(toolCallArgs.Command)
 		if err != nil {
 			return "", err
 		}
-		return runOutput, nil
+		return output, nil
 
 	default:
 		return "", nil

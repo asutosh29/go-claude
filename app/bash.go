@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os/exec"
 	"strings"
 
@@ -34,16 +33,18 @@ func RunBashCommand(command string) (string, error) {
 	parts := strings.Split(command, " ")
 	var program string
 	var args []string
+	var cmd *exec.Cmd
+	program = parts[0]
 	if len(parts) == 1 {
-		args = []string{""}
+		cmd = exec.Command(program)
 	} else {
 		args = parts[1:]
+		cmd = exec.Command(program, args...)
 	}
-	program = parts[0]
-	cmd := exec.Command(program, args...)
+	// fmt.Println("Running: ", program, args)
 	output, err := cmd.Output()
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	return string(output), nil
 }

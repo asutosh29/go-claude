@@ -52,16 +52,6 @@ func main() {
 	}
 	// Messages Setup
 	var messages []openai.ChatCompletionMessageParamUnion
-	// var initalMessages = []openai.ChatCompletionMessageParamUnion{
-	// 	{
-	// 		OfUser: &openai.ChatCompletionUserMessageParam{
-	// 			Content: openai.ChatCompletionUserMessageParamContentUnion{
-	// 				OfString: openai.String(prompt),
-	// 			},
-	// 		},
-	// 	},
-	// }
-
 	messages = append(messages, openai.UserMessage(prompt))
 
 	// Tool setup
@@ -75,6 +65,10 @@ func main() {
 
 	// Agent Loop
 	for {
+		fmt.Println("=== LOGS ===")
+		for _, msg := range messages {
+			fmt.Printf("%+v\n", msg)
+		}
 		resp, err := client.Chat.Completions.New(aiCtx,
 			openai.ChatCompletionNewParams{
 				Model:    modelName,
@@ -96,12 +90,8 @@ func main() {
 
 		// Manage Message history
 		var Message = resp.Choices[0].Message
-		switch Message.Role {
-		case "assistant":
-			messages = append(messages, openai.AssistantMessage(Message.Content))
-		case "user":
-			messages = append(messages, openai.UserMessage(Message.Content))
-		}
+		messages = append(messages, resp.Choices[0].Message.ToParam())
+
 		fmt.Fprintln(os.Stdout, Message.Content)
 		// fmt.Fprintln(os.Stdout)
 		for _, Choice := range resp.Choices {

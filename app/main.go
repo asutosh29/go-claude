@@ -31,10 +31,16 @@ func main() {
 		panic("Env variable OPENROUTER_API_KEY not found")
 	}
 
+	var modelName = ""
+	if os.Getenv("local") == "true" {
+		modelName = "moonshotai/kimi-k2-instruct-0905"
+	} else {
+		modelName = "anthropic/claude-haiku-4.5"
+	}
 	client := openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseUrl))
 	resp, err := client.Chat.Completions.New(context.Background(),
 		openai.ChatCompletionNewParams{
-			Model: "moonshotai/kimi-k2-instruct-0905",
+			Model: modelName,
 			Messages: []openai.ChatCompletionMessageParamUnion{
 				{
 					OfUser: &openai.ChatCompletionUserMessageParam{
